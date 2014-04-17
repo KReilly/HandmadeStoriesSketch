@@ -81,6 +81,7 @@ class ProjectedQuads {
   public void load(String configFile) {
     String[] data = loadStrings(configFile);
     if (data == null) {
+      println("No data loaded at " + configFile);
       return;
     }
     setNumQuads(data.length);

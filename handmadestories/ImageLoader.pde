@@ -1,24 +1,23 @@
 class ImageLoader extends Thread {
   String url;
-  String[] u;
+  String[] imageURLs;
   float complete;
   ArrayList<PImage> imgs = new ArrayList<PImage>();
   String[] config;
 
-  ImageLoader(String u, String[] c) {
+  ImageLoader(String u) {
     this.url = u;
-    this.config = c;
   }
 
   public void run() {
-    this.u = loadStrings(this.url);
-    if (u.length > 0) {
-      u = u[0].split(";");
-      for (int i = 0; i < int(u.length); i++) {
-        addImage(u[i], i);
+    // the URL content is a bunch of other URLs
+    imageURLs = loadStrings(this.url);
+    if (imageURLs != null) {
+      for (int i = 0; i < imageURLs.length; i++) {
+        addImage(imageURLs[i], i);      
       }
+      Collections.shuffle(this.imgs);
     }
-    Collections.shuffle(this.imgs);
   }
 
   public float getComplete() {
@@ -30,18 +29,18 @@ class ImageLoader extends Thread {
       PImage img;
       img = loadImage(url, "jpg");
       this.imgs.add(img);
-      this.setComplete((i/(float)this.u.length));
+      this.setComplete((i/(float)imageURLs.length));
     } catch (Exception e) {
       e.printStackTrace();
     }
   }
 
   public ArrayList<PImage> getImages() {
-    return this.imgs;
+    return imgs;
   }
   
   public int countImages() {
-    return this.imgs.size();
+    return imgs.size();
   }
 
   private void setComplete(float c) {

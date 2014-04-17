@@ -1,9 +1,10 @@
 import java.util.Collections;
 
 ProjectedQuads projectedQuads;
-String quadsConfigFile = "data/quadsconfig.txt";
+String QUADS_CONFIG_FILE = "data/quadsconfig.txt";
 
-String url = "http://handmadestories.herokuapp.com/";
+//String imageListURL = "http://handmadestories.herokuapp.com/";
+String IMAGE_LIST_URL = "data/imageList.txt";
 ImageLoader imageLoader;
 ArrayList<PImage> images = new ArrayList<PImage>();
 
@@ -28,11 +29,11 @@ void setup() {
   frameRate(30);
   textureMode(IMAGE);
   config = loadStrings(configFile);
-  restartThread();
+  restartImageLoader();
   // Create and load previous configurations for
   // projected rectangles
   projectedQuads = new ProjectedQuads();
-  projectedQuads.load(quadsConfigFile);
+  projectedQuads.load(QUADS_CONFIG_FILE);
 }
 
 void draw() {
@@ -66,10 +67,8 @@ void draw() {
   }
   // Each 2 minutes, reload images from the cloud
   if (threadTimer > 120 && !showLoading && imageLoader.getState().toString() == "TERMINATED" && !projectedQuads.debugMode) {
-    // reset timer
     threadTimer = 0;
-    // Restart the threat and repopulate images
-    restartThread();
+    restartImageLoader();
   }
   
   // Only increment time when thread is finished
@@ -149,7 +148,8 @@ void loading() {
 // This will be executed when the first thread finishes.
 // After this, the textures will be just replaced
 void createProjections() {
-  projectedQuads.load(quadsConfigFile);
+  // TODO: check vs. minimum expected image files
+  projectedQuads.load(QUADS_CONFIG_FILE);
   projectedQuads.setNumQuads(int(config[1]));
   println(imageLoader.getImages().size() + " pictures loaded");
   for (int i = 0; i < projectedQuads.getNumQuads(); i++) {
@@ -157,11 +157,10 @@ void createProjections() {
   }
 }
 
-// Call thread again to reload images
-void restartThread() {
-  imageLoader = new ImageLoader(url, config);
+void restartImageLoader() {
+  imageLoader = new ImageLoader(IMAGE_LIST_URL);
   imageLoader.start();
-  println("Thread restarted " + frameCount);
+  println("imageLoader restarted " + frameCount);
 }
 
 void keyPressed() {
@@ -182,7 +181,7 @@ void mouseDragged() {
 void mouseReleased() {
   // Auto save movements if in debug mode
   if (projectedQuads.debugMode && !showLoading) {
-    projectedQuads.save(quadsConfigFile);
+    projectedQuads.save(QUADS_CONFIG_FILE);
   }
 }
 
