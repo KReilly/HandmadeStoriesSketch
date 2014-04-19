@@ -1,15 +1,15 @@
 import java.util.Collections;
+import java.util.Properties;
 
-ProjectedQuads projectedQuads;
-String QUADS_CONFIG_FILE = "data/quadsconfig.txt";
+String PROPERTIES_FILE = "config.properties";
+Properties props;
 
-//String imageListURL = "http://handmadestories.herokuapp.com/";
-String IMAGE_LIST_URL = "data/imageList.txt";
 ImageLoader imageLoader;
 ArrayList<PImage> images = new ArrayList<PImage>();
 
-String configFile = "data/config.txt";
-String[] config;
+ProjectedQuads projectedQuads;
+ArrayList<Quad> qs = new ArrayList<Quad>();
+int qn[] = new int[2]; // Indexes of quads that will change 
 
 float timer = 0;
 float threadTimer = 0;
@@ -19,21 +19,23 @@ boolean fading = true;
 boolean fadeOut = true;
 float f = 1;
 
-ArrayList<Quad> qs = new ArrayList<Quad>();
-int qn[] = new int[2]; // Indexes of quads that will change 
-
 void setup() {
+  props = new Properties();
+  try {
+    props.load(createInput(PROPERTIES_FILE));
+  } catch (Exception e) {
+    e.printStackTrace();
+  }
+
   size(800, 600, P3D);
   background(0);
   frame.setBackground(new java.awt.Color(0, 0, 0));
   frameRate(30);
   textureMode(IMAGE);
-  config = loadStrings(configFile);
   restartImageLoader();
-  // Create and load previous configurations for
-  // projected rectangles
+  // Create and load previous configurations for projected rectangles
   projectedQuads = new ProjectedQuads();
-  projectedQuads.load(QUADS_CONFIG_FILE);
+  projectedQuads.load(props.getProperty("quadsConfigFile"));
 }
 
 void draw() {
@@ -149,8 +151,8 @@ void loading() {
 // After this, the textures will be just replaced
 void createProjections() {
   // TODO: check vs. minimum expected image files
-  projectedQuads.load(QUADS_CONFIG_FILE);
-  projectedQuads.setNumQuads(int(config[1]));
+  //projectedQuads.load(props.getProperty("quadsConfigFile"));
+  projectedQuads.setNumQuads(int(props.getProperty("numberOfQuads")));
   println(imageLoader.getImages().size() + " pictures loaded");
   for (int i = 0; i < projectedQuads.getNumQuads(); i++) {
     projectedQuads.getQuad(i).setTexture(imageLoader.getImages().get(i));
@@ -158,7 +160,7 @@ void createProjections() {
 }
 
 void restartImageLoader() {
-  imageLoader = new ImageLoader(IMAGE_LIST_URL);
+  imageLoader = new ImageLoader(props.getProperty("imageListURL"));
   imageLoader.start();
   println("imageLoader restarted " + frameCount);
 }
@@ -181,7 +183,7 @@ void mouseDragged() {
 void mouseReleased() {
   // Auto save movements if in debug mode
   if (projectedQuads.debugMode && !showLoading) {
-    projectedQuads.save(QUADS_CONFIG_FILE);
+    projectedQuads.save(props.getProperty("quadsConfigFile"));
   }
 }
 
