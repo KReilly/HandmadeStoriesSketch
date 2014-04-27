@@ -1,5 +1,4 @@
-import java.nio.file.FileSystems;
-import java.nio.file.WatchService;
+import java.nio.file.*;
 import java.util.*;
 
 String PROPERTIES_FILE = "config.properties";
@@ -18,6 +17,15 @@ int nextSwitchImageTime;
 
 ArrayList<CrossFadeAnimation> animations = new ArrayList<CrossFadeAnimation>();
 
+WatchService watchService;
+Path watchDir;
+WatchKey watchKey;
+boolean watching = false;
+
+/**
+ * Processing setup().
+ */
+@Override
 void setup() {
   props = new Properties();
   try {
@@ -38,10 +46,6 @@ void setup() {
   projectedQuads = new ProjectedQuads();
   projectedQuads.load(props.getProperty("quadsConfigFile"));  
 
-  restartImageLoader();    
-}
-
-void restartImageLoader() {
   try {
     // load [up to] as many images as we have quads
     imageLoader = new ImageLoader(props.getProperty("imageDirectory"), int(props.getProperty("numberOfQuads")));
@@ -52,6 +56,10 @@ void restartImageLoader() {
   }
 }
 
+/**
+ * Processing draw().
+ */
+@Override
 void draw() {
   background(0);
   
@@ -69,25 +77,87 @@ void draw() {
     doOneTimePostImageLoading();
   }
 
-  maybeSwitchImage();  
-  stepAnimations();
+  if (mainScreenReady()) {
+    maybeSwitchImage();  
+    stepAnimations();
+    checkForNewImages();
+  }
 }
 
+/**
+ * Various do-after-we-load-images things.
+ */
 void doOneTimePostImageLoading() {
-    // imageLoader loads images in last-modified-date descending order,
-    // so oldest image is now at the FIFO end of our queue, ready for
-    // first eviction.
-    images.addAll(imageLoader.images);
-    imageLoader = null;    
-    createProjections();
-    
-    // start timers
-    int now = millis();
-    nextSwitchImageTime = now + SWITCH_IMAGE_INTERVAL_MILLIS;  
+  // imageLoader loads images in last-modified-date descending order,
+  // so oldest image is now at the FIFO end of our queue, ready for
+  // first eviction.
+  images.addAll(imageLoader.images);
+  imageLoader = null;    
+  createProjections();
+  
+  // start timers
+  int now = millis();
+  nextSwitchImageTime = now + SWITCH_IMAGE_INTERVAL_MILLIS;  
+
+  startWatchingImageDir();    
 }
 
+void startWatchingImageDir() {
+  try {
+    watchService = FileSystems.getDefault().newWatchService();
+    watchDir = FileSystems.getDefault().getPath(props.getProperty("imageDirectory"));
+    watchKey = watchDir.register(watchService, StandardWatchEventKinds.ENTRY_CREATE);
+    watching = true;
+  } catch (IOException e) {
+    e.printStackTrace();
+  }
+}
+
+void checkForNewImages() {
+  if (!watching) {
+    return;
+  }
+  
+  WatchKey pollKey = watchService.poll();
+  if (pollKey != null) {
+    for (WatchEvent event : pollKey.pollEvents()) {
+      if (event.kind() == StandardWatchEventKinds.ENTRY_CREATE) {
+        // new file!
+
+        // The filename is the context of the event.
+        WatchEvent<Path> ev = (WatchEvent<Path>)event;
+        Path filename = ev.context();
+        Path child = watchDir.resolve(filename);        
+        if (child.toString().toLowerCase().endsWith(".jpg")) {
+          loadNewImagePath(child);
+        }                
+      }  
+    }
+    
+    // reset the key so we keep getting watch events
+    pollKey.reset();
+  }  
+}
+
+void loadNewImagePath(Path path) {
+  println("Loading new image " + path);
+  String filename = path.toString();
+  PImage newImage = loadImage(filename);
+  images.addFirst(newImage);
+
+  // evict the oldest image
+  PImage oldestImage = images.removeLast();
+
+  // change the quad holding the oldest image to the new image, with animation  
+  Quad quad = image2Quad.get(oldestImage);
+  CrossFadeAnimation anim = new CrossFadeAnimation(quad, newImage);
+  animations.add(anim);
+}
+
+/** 
+ * Step any animations, removing any finished ones.
+ */
 void stepAnimations() {
-  // step any animations, removing any finished ones
   Iterator<CrossFadeAnimation> iter = animations.iterator();
   while (iter.hasNext()) {
     CrossFadeAnimation anim = iter.next();
@@ -102,8 +172,7 @@ void stepAnimations() {
 }
 
 /**
- * This will be executed when the first thread finishes.
- * After this, the textures will be just replaced.
+ * Put images into our quads.
  */
 void createProjections() {
   // make sure we loaded a sufficient number of images
@@ -123,7 +192,7 @@ void createProjections() {
 }
 
 /** 
- * Every 30 seconds, change some image.
+ * Every N seconds, change some image.
  */
 void maybeSwitchImage() {
   int now = millis();  
