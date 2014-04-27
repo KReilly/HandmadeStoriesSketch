@@ -38,13 +38,20 @@ void setup() {
   projectedQuads.load(props.getProperty("quadsConfigFile"));
 }
 
+void restartImageLoader() {
+  imageLoader = new ImageLoader(props.getProperty("imageDirectory"));
+  imageLoader.start();
+  println("imageLoader restarted " + frameCount);
+}
+
 void draw() {
   background(0);
-  // If it is the first run, show loading
+  
   if (showLoading) {
+    // show the loading screen for the first run
     loading();
   } else {
-    // Else, show the projected pictures
+    // show the projected pictures
     try {
       projectedQuads.draw();
     } catch(Exception e) {
@@ -82,6 +89,23 @@ void draw() {
   }
 }
 
+/**
+ * This will be executed when the first thread finishes.
+ * After this, the textures will be just replaced.
+ */
+void createProjections() {
+  // TODO: check vs. minimum expected image files
+  //projectedQuads.load(props.getProperty("quadsConfigFile"));
+  projectedQuads.setNumQuads(int(props.getProperty("numberOfQuads")));
+  println(imageLoader.images.size() + " pictures loaded");
+  for (int i = 0; i < projectedQuads.getNumQuads(); i++) {
+    projectedQuads.getQuad(i).setTexture(imageLoader.images.get(i));
+  }
+}
+
+/**
+ * 
+ */
 void fade() {
   // Verify if you already choose indexes of images
   // to switch
@@ -104,7 +128,8 @@ void fade() {
         // Change the images when they are hidden
         for (int i = 0; i < qn.length; i++) {
           Quad q = (Quad) projectedQuads.quads.get(qn[i]);
-          q.setTexture(imageLoader.getImages().get(int(random(0, imageLoader.countImages()))));
+          int randIdx = int(random(0, imageLoader.images.size()));
+          q.setTexture(imageLoader.images.get(randIdx));
         }
       }
     } else { 
@@ -130,7 +155,7 @@ void fade() {
 // Loading bar with texts
 void loading() {
   String msg = "";
-  if (imageLoader.getComplete() == 0) {
+  if (imageLoader.complete == 0) {
     msg = "Connecting to Dropbox folder";
   } else {
     msg = "Loading images";
@@ -144,25 +169,7 @@ void loading() {
   stroke(255);
   rect(25, (height/2)-25, width-50, 50);
   fill(255);
-  rect(25, (height/2)-25, (width-50) * imageLoader.getComplete(), 50);
-}
-
-// This will be executed when the first thread finishes.
-// After this, the textures will be just replaced
-void createProjections() {
-  // TODO: check vs. minimum expected image files
-  //projectedQuads.load(props.getProperty("quadsConfigFile"));
-  projectedQuads.setNumQuads(int(props.getProperty("numberOfQuads")));
-  println(imageLoader.getImages().size() + " pictures loaded");
-  for (int i = 0; i < projectedQuads.getNumQuads(); i++) {
-    projectedQuads.getQuad(i).setTexture(imageLoader.getImages().get(i));
-  }
-}
-
-void restartImageLoader() {
-  imageLoader = new ImageLoader(props.getProperty("imageListURL"));
-  imageLoader.start();
-  println("imageLoader restarted " + frameCount);
+  rect(25, (height/2)-25, (width-50) * imageLoader.complete, 50);
 }
 
 void keyPressed() {

@@ -1,50 +1,67 @@
+import java.io.FilenameFilter;
+
 class ImageLoader extends Thread {
-  String url;
-  String[] imageURLs;
-  float complete;
-  ArrayList<PImage> imgs = new ArrayList<PImage>();
+  public ArrayList<PImage> images = new ArrayList<PImage>();
+  public float complete;
+  String imageDir;
   String[] config;
 
-  ImageLoader(String u) {
-    this.url = u;
+  /**
+   * @param imageDir Directory to load images from. 
+   */
+  ImageLoader(String imageDir) {
+    this.imageDir = imageDir;
   }
 
+  @Override
   public void run() {
-    // the URL content is a bunch of other URLs
-    imageURLs = loadStrings(this.url);
-    if (imageURLs != null) {
-      for (int i = 0; i < imageURLs.length; i++) {
-        addImage(imageURLs[i], i);      
-      }
-      Collections.shuffle(this.imgs);
+    loadImages();
+  }
+
+  /**
+   * Load all the images found in our images directory.
+   */
+  void loadImages() {
+    ArrayList<String> imageFilenames = getImageFilenames(imageDir);
+    int imageCount = imageFilenames.size();
+    int counter = 0;
+    for (String imageFilename : imageFilenames) {
+      addImage(imageFilename);
+      counter++;
+      complete = (float)counter / (float)imageCount;  
     }
+    
+    Collections.shuffle(images);
   }
-
-  public float getComplete() {
-    return this.complete;
+  
+  /**
+   * List *.jpg from this.imageDir.
+   */
+  ArrayList<String> getImageFilenames(String imageDir) {
+    File dir = new File(imageDir);
+    File[] files = dir.listFiles(new FilenameFilter() {
+      @Override
+      public boolean accept(File dir, String name) {
+        // accept *.jpg
+        return name.toLowerCase().endsWith(".jpg");
+      }
+    });
+    
+    ArrayList<String> filenames = new ArrayList<String>();
+    for (int i = 0, len = files.length; i < len; i++) {
+      File file = files[i];
+      filenames.add(file.getAbsolutePath()); 
+    } 
+    return filenames;
   }
-
-  private void addImage(String url, int i) {
+    
+  private void addImage(String filename) {
     try {
-      PImage img;
-      img = loadImage(url, "jpg");
-      this.imgs.add(img);
-      this.setComplete((i/(float)imageURLs.length));
+      PImage image = loadImage(filename);
+      this.images.add(image);
     } catch (Exception e) {
       e.printStackTrace();
     }
-  }
-
-  public ArrayList<PImage> getImages() {
-    return imgs;
-  }
-  
-  public int countImages() {
-    return imgs.size();
-  }
-
-  private void setComplete(float c) {
-    this.complete = c;
   }
 }
 

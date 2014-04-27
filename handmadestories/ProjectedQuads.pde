@@ -238,12 +238,14 @@ class ProjectedQuads {
 
     //Shift + 's' to avoid accidental saving
     if (key == 'S' || key == 's') {
-      projectedQuads.save(configFile);
+      // TODO
+//      projectedQuads.save(configFile);
     }
 
     //Shift + 'l' to avoid accidental loading
     if (key == 'L' || key == 'l') {
-      projectedQuads.load(configFile);
+      // TODO
+//      projectedQuads.load(configFile);
     }
 
     //Toggle debug/design/setup mode

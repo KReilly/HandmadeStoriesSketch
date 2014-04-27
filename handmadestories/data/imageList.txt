@@ -1,6 +1,0 @@
-file:///Users/mattmcglincy/src/HandmadeStories/handmadestories/images/hand1.jpg
-file:///Users/mattmcglincy/src/HandmadeStories/handmadestories/images/hand2.jpg
-file:///Users/mattmcglincy/src/HandmadeStories/handmadestories/images/hand3.jpg
-file:///Users/mattmcglincy/src/HandmadeStories/handmadestories/images/hand4.jpg
-file:///Users/mattmcglincy/src/HandmadeStories/handmadestories/images/hand5.jpg
-file:///Users/mattmcglincy/src/HandmadeStories/handmadestories/images/hand6.jpg
