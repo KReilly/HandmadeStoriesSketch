@@ -8,16 +8,17 @@ ImageLoader imageLoader;
 ArrayList<PImage> images = new ArrayList<PImage>();
 
 ProjectedQuads projectedQuads;
-ArrayList<Quad> qs = new ArrayList<Quad>();
-int qn[] = new int[2]; // Indexes of quads that will change 
 
-float timer = 0;
-float threadTimer = 0;
+float fadeTimer = 0;
+float restartImageLoaderTimer = 0;
 boolean showLoading = true;
 boolean loaded = false;
 boolean fading = true;
 boolean fadeOut = true;
-float f = 1;
+float fadeAlphaDecrement = 1;
+
+ArrayList<Quad> qs = new ArrayList<Quad>();
+int qn[] = new int[2]; // Indexes of quads that will change 
 
 void setup() {
   props = new Properties();
@@ -41,7 +42,11 @@ void setup() {
 void restartImageLoader() {
   imageLoader = new ImageLoader(props.getProperty("imageDirectory"));
   imageLoader.start();
-  println("imageLoader restarted " + frameCount);
+  println("ImageLoader restarted at frameCount " + frameCount);
+}
+
+boolean imagesAreFinishedLoading() {
+  return imageLoader.getState().toString() == "TERMINATED";
 }
 
 void draw() {
@@ -59,34 +64,34 @@ void draw() {
     }
   }
 
-  // After the first thread run, create the projection quads and remove loading
-  if (imageLoader.getState().toString() == "TERMINATED" && showLoading) {
+  // check to see if images are loaded yet
+  if (imagesAreFinishedLoading() && showLoading) {
     showLoading = false;
     createProjections();
   }
 
   // Every 30 seconds, change the images and start a new thread if the
   // previous thread is finished
-  if (timer > 5 && !showLoading && imageLoader.getState().toString() == "TERMINATED" && !projectedQuads.debugMode) {
+  if (fadeTimer > 5 && !showLoading && imagesAreFinishedLoading() && !projectedQuads.debugMode) {
     if (!fading) {
-      f = 1;
+      fadeAlphaDecrement = 1;
       fading = true;
     }
     fade();
   }
   
   // Each 2 minutes, reload images from the cloud
-  if (threadTimer > 120 && !showLoading && imageLoader.getState().toString() == "TERMINATED" && !projectedQuads.debugMode) {
-    threadTimer = 0;
+  if (restartImageLoaderTimer > 120 && !showLoading && imagesAreFinishedLoading() && !projectedQuads.debugMode) {
+    restartImageLoaderTimer = 0;
     restartImageLoader();
   }
   
   // Only increment time when thread is finished
   // it will make sure your pictures will fade and switch
   // every 5 seconds for 120 seconds
-  if (imageLoader.getState().toString() == "TERMINATED") {
-    timer += 0.03;
-    threadTimer += 0.03;
+  if (imagesAreFinishedLoading()) {
+    fadeTimer += 0.03;
+    restartImageLoaderTimer += 0.03;
   }
 }
 
@@ -112,8 +117,7 @@ void createProjections() {
  * 
  */
 void fade() {
-  // Verify if you already choose indexes of images
-  // to switch
+  // Verify if you already choose indexes of images to switch
   if (qs.size() == 0) {
     for (int i = 0; i < qn.length; i++) {
       // Choose a random quad index
@@ -124,27 +128,27 @@ void fade() {
     }
   }
 
-  // If is time to switch images, start fading process
+  // If is time to switch images, start fading
   if (fading) {
     if (fadeOut) {
-      f *= 1.1;
-      if (f > 255) {
+      fadeAlphaDecrement *= 1.1;
+      if (fadeAlphaDecrement > 255) {
         fadeOut = false;
         // Change the images when they are hidden
         for (int i = 0; i < qn.length; i++) {
-          Quad q = (Quad) projectedQuads.quads.get(qn[i]);
+          Quad q = projectedQuads.quads.get(qn[i]);
           int randIdx = int(random(0, imageLoader.images.size()));
           q.setTexture(imageLoader.images.get(randIdx));
         }
       }
     } else { 
-      // fadeIn (end of fading transition
-      f /= 1.1;
-      if (f < 1) {
+      // fadeIn (end of fading transition)
+      fadeAlphaDecrement /= 1.1;
+      if (fadeAlphaDecrement < 1) {
         fading = false;
         fadeOut = true;
         // Reset timer
-        timer = 0;
+        fadeTimer = 0;
         qs.clear();
       }
     } //fadeOut
@@ -152,8 +156,8 @@ void fade() {
   
   // Set alpha to projectedQuads textures
   for (int i = 0; i < qn.length; i++) {
-    Quad q = (Quad) projectedQuads.quads.get(qn[i]);
-    q.alpha = 255-f;
+    Quad q = projectedQuads.quads.get(qn[i]);
+    q.alpha = 255 - fadeAlphaDecrement;
   }
 }
 

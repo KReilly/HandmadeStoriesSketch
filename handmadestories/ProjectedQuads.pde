@@ -40,7 +40,7 @@
  */
 
 class ProjectedQuads {
-  private ArrayList quads;
+  private ArrayList<Quad> quads;
   private boolean debugMode = true;
   private int selectedQuad = 0;
   private int selectedPoint = 0;  
@@ -76,7 +76,7 @@ class ProjectedQuads {
   }
 
   public Quad getQuad(int i) {
-    return (Quad)quads.get(i);
+    return quads.get(i);
   }
 
   public void load(String configFile) {
@@ -198,7 +198,6 @@ class ProjectedQuads {
       }
     }
   }
-
 
   public void keyPressed() {
     if (selectedQuad > -1 && selectedPoint > -1) {
