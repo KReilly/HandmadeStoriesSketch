@@ -74,6 +74,7 @@ void draw() {
     }
     fade();
   }
+  
   // Each 2 minutes, reload images from the cloud
   if (threadTimer > 120 && !showLoading && imageLoader.getState().toString() == "TERMINATED" && !projectedQuads.debugMode) {
     threadTimer = 0;
@@ -81,7 +82,7 @@ void draw() {
   }
   
   // Only increment time when thread is finished
-  // it will make sure you pictures will fade and switch
+  // it will make sure your pictures will fade and switch
   // every 5 seconds for 120 seconds
   if (imageLoader.getState().toString() == "TERMINATED") {
     timer += 0.03;
@@ -92,18 +93,16 @@ void draw() {
 /**
  * This will be executed when the first thread finishes.
  * After this, the textures will be just replaced.
- *
- * @throws IOException if insufficient images have been loads vs. desired # of quads.
  */
 void createProjections() {
   // make sure we loaded a sufficient number of images
-  int numQuads = int(props.getProperty("numberOfQuads"));
-  int numImagesLoaded = imageLoader.images.size();
-  if (numQuads > numImagesLoaded) {
-    println("Wanted "  + numQuads + " projected quads, but only loaded " + numImagesLoaded + " images.");  
-  }
+  int desiredQuads = int(props.getProperty("numberOfQuads"));
+  int imagesLoaded = imageLoader.images.size();
+  if (desiredQuads > imagesLoaded) {
+    println("Wanted "  + desiredQuads + " projected quads, but only loaded " + imagesLoaded + " images.");  
+  }  
+  projectedQuads.setNumQuads(Math.min(desiredQuads, imagesLoaded));
   
-  projectedQuads.setNumQuads(Math.min(numQuads, numImagesLoaded));
   for (int i = 0; i < projectedQuads.getNumQuads(); i++) {
     projectedQuads.getQuad(i).setTexture(imageLoader.images.get(i));
   }
