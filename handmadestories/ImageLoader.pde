@@ -32,6 +32,7 @@ class ImageLoader extends Thread {
     }
     
     Collections.shuffle(images);
+    println("ImageLoader loaded " + images.size() + " images from " + imageDir);
   }
   
   /**

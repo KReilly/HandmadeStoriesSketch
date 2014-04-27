@@ -92,12 +92,18 @@ void draw() {
 /**
  * This will be executed when the first thread finishes.
  * After this, the textures will be just replaced.
+ *
+ * @throws IOException if insufficient images have been loads vs. desired # of quads.
  */
 void createProjections() {
-  // TODO: check vs. minimum expected image files
-  //projectedQuads.load(props.getProperty("quadsConfigFile"));
-  projectedQuads.setNumQuads(int(props.getProperty("numberOfQuads")));
-  println(imageLoader.images.size() + " pictures loaded");
+  // make sure we loaded a sufficient number of images
+  int numQuads = int(props.getProperty("numberOfQuads"));
+  int numImagesLoaded = imageLoader.images.size();
+  if (numQuads > numImagesLoaded) {
+    println("Wanted "  + numQuads + " projected quads, but only loaded " + numImagesLoaded + " images.");  
+  }
+  
+  projectedQuads.setNumQuads(Math.min(numQuads, numImagesLoaded));
   for (int i = 0; i < projectedQuads.getNumQuads(); i++) {
     projectedQuads.getQuad(i).setTexture(imageLoader.images.get(i));
   }
