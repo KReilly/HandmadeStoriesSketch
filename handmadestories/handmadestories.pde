@@ -1,4 +1,5 @@
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Properties;
 
 String PROPERTIES_FILE = "config.properties";
@@ -6,19 +7,25 @@ Properties props;
 
 ImageLoader imageLoader;
 ArrayList<PImage> images = new ArrayList<PImage>();
+boolean showLoading = true;
 
 ProjectedQuads projectedQuads;
 
-float fadeTimer = 0;
-float restartImageLoaderTimer = 0;
-boolean showLoading = true;
-boolean loaded = false;
 boolean fading = true;
 boolean fadeOut = true;
 float fadeAlphaDecrement = 1;
 
-ArrayList<Quad> qs = new ArrayList<Quad>();
-int qn[] = new int[2]; // Indexes of quads that will change 
+int HOW_MANY_QUADS_TO_SWITCH_AT_A_TIME = 2;
+HashSet<Quad> quadsToSwitch = new HashSet<Quad>();
+
+Quad quadToSwitch1;
+Quad quadToSwitch2;
+
+int RESTART_IMAGELOADER_INTERVAL_MILLIS = 120 * 1000;
+int nextRestartImageLoaderTime;
+
+int FADE_INTERVAL_MILLIS = 5 * 1000;
+int nextFadeTime;
 
 void setup() {
   props = new Properties();
@@ -36,7 +43,7 @@ void setup() {
   restartImageLoader();
   // Create and load previous configurations for projected rectangles
   projectedQuads = new ProjectedQuads();
-  projectedQuads.load(props.getProperty("quadsConfigFile"));
+  projectedQuads.load(props.getProperty("quadsConfigFile"));  
 }
 
 void restartImageLoader() {
@@ -53,8 +60,8 @@ void draw() {
   background(0);
   
   if (showLoading) {
-    // show the loading screen for the first run
-    loading();
+    // show the loading screen until images are loaded
+    showLoadingScreen();
   } else {
     // show the projected pictures
     try {
@@ -64,35 +71,18 @@ void draw() {
     }
   }
 
-  // check to see if images are loaded yet
-  if (imagesAreFinishedLoading() && showLoading) {
+  // check to see if image-loading is done
+  if (showLoading && imagesAreFinishedLoading()) {
     showLoading = false;
     createProjections();
+    // start timers
+    int now = millis();
+    nextFadeTime = now + FADE_INTERVAL_MILLIS;
+    nextRestartImageLoaderTime = now + RESTART_IMAGELOADER_INTERVAL_MILLIS;
   }
 
-  // Every 30 seconds, change the images and start a new thread if the
-  // previous thread is finished
-  if (fadeTimer > 5 && !showLoading && imagesAreFinishedLoading() && !projectedQuads.debugMode) {
-    if (!fading) {
-      fadeAlphaDecrement = 1;
-      fading = true;
-    }
-    fade();
-  }
-  
-  // Each 2 minutes, reload images from the cloud
-  if (restartImageLoaderTimer > 120 && !showLoading && imagesAreFinishedLoading() && !projectedQuads.debugMode) {
-    restartImageLoaderTimer = 0;
-    restartImageLoader();
-  }
-  
-  // Only increment time when thread is finished
-  // it will make sure your pictures will fade and switch
-  // every 5 seconds for 120 seconds
-  if (imagesAreFinishedLoading()) {
-    fadeTimer += 0.03;
-    restartImageLoaderTimer += 0.03;
-  }
+  maybeFade();  
+  maybeRestartImageLoader();  
 }
 
 /**
@@ -113,21 +103,58 @@ void createProjections() {
   }
 }
 
+/** 
+ * Every 30 seconds, change the images and start a new thread if the
+ * previous thread is finished
+ */
+void maybeFade() {
+  int now = millis();  
+  if (now >= nextFadeTime && 
+    !showLoading && 
+    imagesAreFinishedLoading() && 
+    !projectedQuads.debugMode) {
+    if (!fading) {
+      fadeAlphaDecrement = 1;
+      fading = true;
+    }
+    fade();
+  }
+}
+
+/** 
+ * Each 2 minutes, reload images.
+ */
+void maybeRestartImageLoader() {
+  int now = millis();  
+  if (now >= nextRestartImageLoaderTime && 
+    !showLoading && 
+    imagesAreFinishedLoading() && 
+    !projectedQuads.debugMode) {
+    restartImageLoader();
+    nextRestartImageLoaderTime = now + RESTART_IMAGELOADER_INTERVAL_MILLIS;      
+  }    
+}
+
 /**
  * 
  */
 void fade() {
-  // Verify if you already choose indexes of images to switch
-  if (qs.size() == 0) {
-    for (int i = 0; i < qn.length; i++) {
-      // Choose a random quad index
-      qn[i] = int(random(0, projectedQuads.quads.size()));
-      // Get a random quad and add to quads that will change
-      Quad q = (Quad) projectedQuads.quads.get(qn[i]);
-      qs.add(q);
+
+  // pick quads to switch if we haven't already done so 
+  if (quadToSwitch1 != null && quadToSwitch2 != null) {
+      int rand1 = int(random(0, projectedQuads.quads.size()));
+      int rand2 = int(random(0, projectedQuads.quads.size()));    
+  }
+  
+  if (quadsToSwitch.isEmpty()) {
+    for (int i = 0; i < HOW_MANY_QUADS_TO_SWITCH_AT_A_TIME; i++) {
+      // Get a random quad
+      int randIdx = int(random(0, projectedQuads.quads.size()));
+      Quad q = projectedQuads.quads.get(randIdx);
+      quadsToSwitch.add(q);
     }
   }
-
+  
   // If is time to switch images, start fading
   if (fading) {
     if (fadeOut) {
@@ -135,34 +162,38 @@ void fade() {
       if (fadeAlphaDecrement > 255) {
         fadeOut = false;
         // Change the images when they are hidden
-        for (int i = 0; i < qn.length; i++) {
-          Quad q = projectedQuads.quads.get(qn[i]);
+        for (Quad quad : quadsToSwitch) {
+          // pick a random image to switch to
           int randIdx = int(random(0, imageLoader.images.size()));
-          q.setTexture(imageLoader.images.get(randIdx));
+          PImage randImage = imageLoader.images.get(randIdx);
+          quad.setTexture(randImage);
         }
       }
     } else { 
       // fadeIn (end of fading transition)
       fadeAlphaDecrement /= 1.1;
       if (fadeAlphaDecrement < 1) {
+        // done fading
         fading = false;
-        fadeOut = true;
-        // Reset timer
-        fadeTimer = 0;
-        qs.clear();
+        fadeOut = true;        
+        quadsToSwitch.clear();
+        int now = millis(); 
+        nextFadeTime = now + FADE_INTERVAL_MILLIS;
       }
     } //fadeOut
   } //fading
   
   // Set alpha to projectedQuads textures
-  for (int i = 0; i < qn.length; i++) {
-    Quad q = projectedQuads.quads.get(qn[i]);
-    q.alpha = 255 - fadeAlphaDecrement;
+  println("applying fade decrement " + fadeAlphaDecrement);
+  for (Quad quad : quadsToSwitch) {
+    quad.alpha = 255 - fadeAlphaDecrement;
   }
 }
 
-// Loading bar with texts
-void loading() {
+/**
+ * Show loading bar with text.
+ */
+void showLoadingScreen() {
   String msg = "";
   if (imageLoader.complete == 0) {
     msg = "Connecting to Dropbox folder";
