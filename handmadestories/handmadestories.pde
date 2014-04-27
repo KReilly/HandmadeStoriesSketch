@@ -4,20 +4,17 @@ String PROPERTIES_FILE = "config.properties";
 Properties props;
 
 ImageLoader imageLoader;
-ArrayList<PImage> images = new ArrayList<PImage>();
 boolean showLoading = true;
 
 ProjectedQuads projectedQuads;
-
-int RESTART_IMAGELOADER_INTERVAL_MILLIS = 120 * 1000;
-int nextRestartImageLoaderTime;
+LinkedList<PImage> images = new LinkedList<PImage>();
+Map<PImage,Quad> image2Quad = new HashMap<PImage,Quad>();
 
 int HOW_MANY_IMAGES_TO_SWITCH_AT_A_TIME = 2;
 int SWITCH_IMAGE_INTERVAL_MILLIS = 5 * 1000;
 int nextSwitchImageTime;
 
 ArrayList<CrossFadeAnimation> animations = new ArrayList<CrossFadeAnimation>();
-ArrayList<CrossFadeAnimation> animationsToRemove = new ArrayList<CrossFadeAnimation>();
 
 void setup() {
   props = new Properties();
@@ -52,10 +49,6 @@ void restartImageLoader() {
   }
 }
 
-boolean imagesAreFinishedLoading() {
-  return imageLoader.getState().toString() == "TERMINATED";
-}
-
 void draw() {
   background(0);
   
@@ -72,17 +65,18 @@ void draw() {
   }
 
   // check to see if image-loading is done
-  if (showLoading && imagesAreFinishedLoading()) {
+  if (showLoading && imageLoader.getState().toString() == "TERMINATED") {
     showLoading = false;
+    images.addAll(imageLoader.images);
+    imageLoader = null;    
     createProjections();
+    
     // start timers
     int now = millis();
     nextSwitchImageTime = now + SWITCH_IMAGE_INTERVAL_MILLIS;
-    nextRestartImageLoaderTime = now + RESTART_IMAGELOADER_INTERVAL_MILLIS;
   }
 
   maybeSwitchImage();  
-  maybeRestartImageLoader();  
   
   // step any animations, removing any finished ones
   Iterator<CrossFadeAnimation> iter = animations.iterator();
@@ -90,6 +84,8 @@ void draw() {
     CrossFadeAnimation anim = iter.next();
     if (anim.done()) {
       iter.remove();
+      // update our image=>quad map
+      image2Quad.put(anim.newImage, anim.quad);
     } else {
       anim.step();
     }
@@ -103,14 +99,17 @@ void draw() {
 void createProjections() {
   // make sure we loaded a sufficient number of images
   int desiredQuads = int(props.getProperty("numberOfQuads"));
-  int imagesLoaded = imageLoader.images.size();
+  int imagesLoaded = images.size();
   if (desiredQuads > imagesLoaded) {
     println("Wanted "  + desiredQuads + " projected quads, but only loaded " + imagesLoaded + " images.");  
   }  
   projectedQuads.setNumQuads(Math.min(desiredQuads, imagesLoaded));
   
   for (int i = 0; i < projectedQuads.getNumQuads(); i++) {
-    projectedQuads.getQuad(i).setTexture(imageLoader.images.get(i));
+    PImage image = images.get(i);
+    Quad quad = projectedQuads.getQuad(i);
+    quad.setTexture(image);
+    image2Quad.put(image, quad);
   }
 }
 
@@ -137,10 +136,10 @@ void switchImage() {
   Quad quad = projectedQuads.quads.get(quadIdx);
 
   // pick a random image to switch to
-  int imageIdx = int(random(0, imageLoader.images.size()));
-  PImage randImage = imageLoader.images.get(imageIdx);
+  int imageIdx = int(random(0, images.size()));
+  PImage randImage = images.get(imageIdx);
 
-  println("Switch image on quad " + quadIdx);
+  println("Switch quad " + quadIdx);
   CrossFadeAnimation anim = new CrossFadeAnimation(quad, randImage);
   animations.add(anim);
 }
@@ -150,19 +149,7 @@ void switchImage() {
  */
 boolean mainScreenReady() {
   return (!showLoading && 
-    imagesAreFinishedLoading() && 
     !projectedQuads.debugMode);
-}
-
-/** 
- * Each 2 minutes, reload images.
- */
-void maybeRestartImageLoader() {
-  int now = millis();  
-  if (now >= nextRestartImageLoaderTime && mainScreenReady()) {
-    restartImageLoader();
-    nextRestartImageLoaderTime = now + RESTART_IMAGELOADER_INTERVAL_MILLIS;      
-  }    
 }
 
 /**
