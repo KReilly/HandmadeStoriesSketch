@@ -1,3 +1,5 @@
+import java.nio.file.FileSystems;
+import java.nio.file.WatchService;
 import java.util.*;
 
 String PROPERTIES_FILE = "config.properties";
@@ -36,7 +38,7 @@ void setup() {
   projectedQuads = new ProjectedQuads();
   projectedQuads.load(props.getProperty("quadsConfigFile"));  
 
-  restartImageLoader();  
+  restartImageLoader();    
 }
 
 void restartImageLoader() {
@@ -58,27 +60,33 @@ void draw() {
     showLoadingScreen();
   } else {
     // show the projected pictures
-    try {
-      projectedQuads.draw();
-    } catch(Exception e) {
-      e.printStackTrace();
-    }
+    projectedQuads.draw();
   }
 
   // check to see if image-loading is done
   if (showLoading && imageLoader.getState().toString() == "TERMINATED") {
     showLoading = false;
+    doOneTimePostImageLoading();
+  }
+
+  maybeSwitchImage();  
+  stepAnimations();
+}
+
+void doOneTimePostImageLoading() {
+    // imageLoader loads images in last-modified-date descending order,
+    // so oldest image is now at the FIFO end of our queue, ready for
+    // first eviction.
     images.addAll(imageLoader.images);
     imageLoader = null;    
     createProjections();
     
     // start timers
     int now = millis();
-    nextSwitchImageTime = now + SWITCH_IMAGE_INTERVAL_MILLIS;
-  }
+    nextSwitchImageTime = now + SWITCH_IMAGE_INTERVAL_MILLIS;  
+}
 
-  maybeSwitchImage();  
-  
+void stepAnimations() {
   // step any animations, removing any finished ones
   Iterator<CrossFadeAnimation> iter = animations.iterator();
   while (iter.hasNext()) {
@@ -90,7 +98,7 @@ void draw() {
     } else {
       anim.step();
     }
-  }
+  }  
 }
 
 /**

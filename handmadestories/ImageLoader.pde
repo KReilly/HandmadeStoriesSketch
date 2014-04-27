@@ -1,6 +1,4 @@
 import java.io.*;
-import java.nio.file.FileSystems;
-import java.nio.file.WatchService;
 import java.util.*;
 
 class ImageLoader extends Thread {
@@ -15,7 +13,6 @@ class ImageLoader extends Thread {
   ImageLoader(String imageDir, int maxImageCount) throws IOException {
     this.imageDir = imageDir;    
     this.maxImageCount = maxImageCount;
-    WatchService watcher = FileSystems.getDefault().newWatchService();
   }
 
   @Override
