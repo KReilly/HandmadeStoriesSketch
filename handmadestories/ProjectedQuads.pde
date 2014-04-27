@@ -46,6 +46,7 @@ class ProjectedQuads {
   private int selectedPoint = 0;  
   private float numSubdivisions = 5;
   PFont debugFont;
+  private String configFile;
 
   public ProjectedQuads() {
     quads = new ArrayList();
@@ -93,6 +94,7 @@ class ProjectedQuads {
         points[j].y = parseFloat(lineArr[j*2+1]);
       }
     }
+    this.configFile = configFile;
     println("ProjectedQuads loaded from: " + configFile);
   }
 
@@ -238,14 +240,16 @@ class ProjectedQuads {
 
     //Shift + 's' to avoid accidental saving
     if (key == 'S' || key == 's') {
-      // TODO
-//      projectedQuads.save(configFile);
+      if (configFile != null) {
+        projectedQuads.save(configFile);
+      }
     }
 
     //Shift + 'l' to avoid accidental loading
     if (key == 'L' || key == 'l') {
-      // TODO
-//      projectedQuads.load(configFile);
+      if (configFile != null) {
+        projectedQuads.load(configFile);
+      }
     }
 
     //Toggle debug/design/setup mode
