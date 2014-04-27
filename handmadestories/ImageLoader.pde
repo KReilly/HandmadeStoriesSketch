@@ -44,7 +44,6 @@ class ImageLoader extends Thread {
       complete = (float)counter / (float)imageCount;  
     }
     
-    Collections.shuffle(images);
     println("ImageLoader loaded " + images.size() + " images from " + imageDir);
   }
   
