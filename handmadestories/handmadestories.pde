@@ -41,7 +41,8 @@ void setup() {
 
 void restartImageLoader() {
   try {
-    imageLoader = new ImageLoader(props.getProperty("imageDirectory"));
+    // load [up to] as many images as we have quads
+    imageLoader = new ImageLoader(props.getProperty("imageDirectory"), int(props.getProperty("numberOfQuads")));
     imageLoader.start();
     println("ImageLoader restarted at frameCount " + frameCount);
   } catch (IOException e) {
