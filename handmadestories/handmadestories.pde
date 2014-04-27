@@ -1,6 +1,4 @@
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Properties;
+import java.util.*;
 
 String PROPERTIES_FILE = "config.properties";
 Properties props;
@@ -11,28 +9,25 @@ boolean showLoading = true;
 
 ProjectedQuads projectedQuads;
 
-boolean fading = true;
-boolean fadeOut = true;
-float fadeAlphaDecrement = 1;
-
-int HOW_MANY_QUADS_TO_SWITCH_AT_A_TIME = 2;
-HashSet<Quad> quadsToSwitch = new HashSet<Quad>();
-
-Quad quadToSwitch1;
-Quad quadToSwitch2;
-
 int RESTART_IMAGELOADER_INTERVAL_MILLIS = 120 * 1000;
 int nextRestartImageLoaderTime;
 
-int FADE_INTERVAL_MILLIS = 5 * 1000;
-int nextFadeTime;
+int HOW_MANY_IMAGES_TO_SWITCH_AT_A_TIME = 2;
+int SWITCH_IMAGE_INTERVAL_MILLIS = 5 * 1000;
+int nextSwitchImageTime;
+
+ArrayList<CrossFadeAnimation> animations = new ArrayList<CrossFadeAnimation>();
+ArrayList<CrossFadeAnimation> animationsToRemove = new ArrayList<CrossFadeAnimation>();
 
 void setup() {
   props = new Properties();
   try {
     props.load(createInput(PROPERTIES_FILE));
-  } catch (Exception e) {
+  } catch (IOException e) {
+    // no config, so bail
     e.printStackTrace();
+    exit();
+    return;
   }
 
   size(800, 600, P3D);
@@ -40,16 +35,21 @@ void setup() {
   frame.setBackground(new java.awt.Color(0, 0, 0));
   frameRate(30);
   textureMode(IMAGE);
-  restartImageLoader();
-  // Create and load previous configurations for projected rectangles
+
   projectedQuads = new ProjectedQuads();
   projectedQuads.load(props.getProperty("quadsConfigFile"));  
+
+  restartImageLoader();  
 }
 
 void restartImageLoader() {
-  imageLoader = new ImageLoader(props.getProperty("imageDirectory"));
-  imageLoader.start();
-  println("ImageLoader restarted at frameCount " + frameCount);
+  try {
+    imageLoader = new ImageLoader(props.getProperty("imageDirectory"));
+    imageLoader.start();
+    println("ImageLoader restarted at frameCount " + frameCount);
+  } catch (IOException e) {
+    e.printStackTrace();
+  }
 }
 
 boolean imagesAreFinishedLoading() {
@@ -77,12 +77,23 @@ void draw() {
     createProjections();
     // start timers
     int now = millis();
-    nextFadeTime = now + FADE_INTERVAL_MILLIS;
+    nextSwitchImageTime = now + SWITCH_IMAGE_INTERVAL_MILLIS;
     nextRestartImageLoaderTime = now + RESTART_IMAGELOADER_INTERVAL_MILLIS;
   }
 
-  maybeFade();  
+  maybeSwitchImage();  
   maybeRestartImageLoader();  
+  
+  // step any animations, removing any finished ones
+  Iterator<CrossFadeAnimation> iter = animations.iterator();
+  while (iter.hasNext()) {
+    CrossFadeAnimation anim = iter.next();
+    if (anim.done()) {
+      iter.remove();
+    } else {
+      anim.step();
+    }
+  }
 }
 
 /**
@@ -104,21 +115,43 @@ void createProjections() {
 }
 
 /** 
- * Every 30 seconds, change the images and start a new thread if the
- * previous thread is finished
+ * Every 30 seconds, change some image.
  */
-void maybeFade() {
+void maybeSwitchImage() {
   int now = millis();  
-  if (now >= nextFadeTime && 
-    !showLoading && 
-    imagesAreFinishedLoading() && 
-    !projectedQuads.debugMode) {
-    if (!fading) {
-      fadeAlphaDecrement = 1;
-      fading = true;
-    }
-    fade();
+  if (now >= nextSwitchImageTime && mainScreenReady()) {
+    for (int i = 0; i < HOW_MANY_IMAGES_TO_SWITCH_AT_A_TIME; i++) {
+      // TODO: this may try to switch the same random image
+      switchImage();      
+    }      
+    nextSwitchImageTime = now + SWITCH_IMAGE_INTERVAL_MILLIS;
   }
+}
+
+/** 
+ * Switch the image on a random quad.
+ */
+void switchImage() {
+  // pick a random quad
+  int quadIdx = int(random(0, projectedQuads.quads.size()));
+  Quad quad = projectedQuads.quads.get(quadIdx);
+
+  // pick a random image to switch to
+  int imageIdx = int(random(0, imageLoader.images.size()));
+  PImage randImage = imageLoader.images.get(imageIdx);
+
+  println("Switch image on quad " + quadIdx);
+  CrossFadeAnimation anim = new CrossFadeAnimation(quad, randImage);
+  animations.add(anim);
+}
+
+/**
+ * Whether the main quads screen is ready for fading, animating, reloading, etc.
+ */
+boolean mainScreenReady() {
+  return (!showLoading && 
+    imagesAreFinishedLoading() && 
+    !projectedQuads.debugMode);
 }
 
 /** 
@@ -126,68 +159,10 @@ void maybeFade() {
  */
 void maybeRestartImageLoader() {
   int now = millis();  
-  if (now >= nextRestartImageLoaderTime && 
-    !showLoading && 
-    imagesAreFinishedLoading() && 
-    !projectedQuads.debugMode) {
+  if (now >= nextRestartImageLoaderTime && mainScreenReady()) {
     restartImageLoader();
     nextRestartImageLoaderTime = now + RESTART_IMAGELOADER_INTERVAL_MILLIS;      
   }    
-}
-
-/**
- * 
- */
-void fade() {
-
-  // pick quads to switch if we haven't already done so 
-  if (quadToSwitch1 != null && quadToSwitch2 != null) {
-      int rand1 = int(random(0, projectedQuads.quads.size()));
-      int rand2 = int(random(0, projectedQuads.quads.size()));    
-  }
-  
-  if (quadsToSwitch.isEmpty()) {
-    for (int i = 0; i < HOW_MANY_QUADS_TO_SWITCH_AT_A_TIME; i++) {
-      // Get a random quad
-      int randIdx = int(random(0, projectedQuads.quads.size()));
-      Quad q = projectedQuads.quads.get(randIdx);
-      quadsToSwitch.add(q);
-    }
-  }
-  
-  // If is time to switch images, start fading
-  if (fading) {
-    if (fadeOut) {
-      fadeAlphaDecrement *= 1.1;
-      if (fadeAlphaDecrement > 255) {
-        fadeOut = false;
-        // Change the images when they are hidden
-        for (Quad quad : quadsToSwitch) {
-          // pick a random image to switch to
-          int randIdx = int(random(0, imageLoader.images.size()));
-          PImage randImage = imageLoader.images.get(randIdx);
-          quad.setTexture(randImage);
-        }
-      }
-    } else { 
-      // fadeIn (end of fading transition)
-      fadeAlphaDecrement /= 1.1;
-      if (fadeAlphaDecrement < 1) {
-        // done fading
-        fading = false;
-        fadeOut = true;        
-        quadsToSwitch.clear();
-        int now = millis(); 
-        nextFadeTime = now + FADE_INTERVAL_MILLIS;
-      }
-    } //fadeOut
-  } //fading
-  
-  // Set alpha to projectedQuads textures
-  println("applying fade decrement " + fadeAlphaDecrement);
-  for (Quad quad : quadsToSwitch) {
-    quad.alpha = 255 - fadeAlphaDecrement;
-  }
 }
 
 /**
