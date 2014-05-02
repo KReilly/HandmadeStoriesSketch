@@ -37,7 +37,7 @@ void setup() {
     return;
   }
 
-  size(800, 600, P3D);
+  size(1024, 768, P3D);
   background(0);
   frame.setBackground(new java.awt.Color(0, 0, 0));
   frameRate(30);
