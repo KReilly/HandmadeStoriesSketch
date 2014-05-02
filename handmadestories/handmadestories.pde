@@ -11,9 +11,8 @@ ProjectedQuads projectedQuads;
 LinkedList<PImage> images = new LinkedList<PImage>();
 Map<PImage,Quad> image2Quad = new HashMap<PImage,Quad>();
 
-int HOW_MANY_IMAGES_TO_SWITCH_AT_A_TIME = 2;
-int SWITCH_IMAGE_INTERVAL_MILLIS = 5 * 1000;
-int nextSwitchImageTime;
+int SWAP_TWO_IMAGES_INTERVAL_MILLIS = 10 * 1000;
+int nextSwapTwoImagesTime;
 
 ArrayList<CrossFadeAnimation> animations = new ArrayList<CrossFadeAnimation>();
 
@@ -78,7 +77,7 @@ void draw() {
   }
 
   if (mainScreenReady()) {
-    maybeSwitchImage();  
+    maybeSwapTwoImages();  
     stepAnimations();
     checkForNewImages();
   }
@@ -97,7 +96,7 @@ void doOneTimePostImageLoading() {
   
   // start timers
   int now = millis();
-  nextSwitchImageTime = now + SWITCH_IMAGE_INTERVAL_MILLIS;  
+  nextSwapTwoImagesTime = now + SWAP_TWO_IMAGES_INTERVAL_MILLIS;  
 
   startWatchingImageDir();    
 }
@@ -192,34 +191,29 @@ void createProjections() {
 }
 
 /** 
- * Every N seconds, change some image.
+ * Every N seconds, swap 2 visible images.
  */
-void maybeSwitchImage() {
+void maybeSwapTwoImages() {
   int now = millis();  
-  if (now >= nextSwitchImageTime && mainScreenReady()) {
-    for (int i = 0; i < HOW_MANY_IMAGES_TO_SWITCH_AT_A_TIME; i++) {
-      // TODO: this may try to switch the same random image
-      switchImage();      
-    }      
-    nextSwitchImageTime = now + SWITCH_IMAGE_INTERVAL_MILLIS;
+  if (now >= nextSwapTwoImagesTime && mainScreenReady()) {
+    // pick 2 random images to swap
+    int idx1 = int(random(0, images.size()));
+    int idx2 = int(random(0, images.size()));
+    
+    // only swap if we picked two different images
+    if (idx1 != idx2) {
+      PImage image1 = images.get(idx1);
+      PImage image2 = images.get(idx2);          
+      Quad quad1 = image2Quad.get(image1);
+      Quad quad2 = image2Quad.get(image2);      
+      CrossFadeAnimation anim1 = new CrossFadeAnimation(quad1, image2);
+      animations.add(anim1);      
+      CrossFadeAnimation anim2 = new CrossFadeAnimation(quad2, image1);
+      animations.add(anim2);      
+    }
+    
+    nextSwapTwoImagesTime = now + SWAP_TWO_IMAGES_INTERVAL_MILLIS;
   }
-}
-
-/** 
- * Switch the image on a random quad.
- */
-void switchImage() {
-  // pick a random quad
-  int quadIdx = int(random(0, projectedQuads.quads.size()));
-  Quad quad = projectedQuads.quads.get(quadIdx);
-
-  // pick a random image to switch to
-  int imageIdx = int(random(0, images.size()));
-  PImage randImage = images.get(imageIdx);
-
-  println("Switch quad " + quadIdx);
-  CrossFadeAnimation anim = new CrossFadeAnimation(quad, randImage);
-  animations.add(anim);
 }
 
 /**
